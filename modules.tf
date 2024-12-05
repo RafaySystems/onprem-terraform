@@ -62,6 +62,17 @@ module "eks-cluster" {
   egress_cidr_blocks                           = var.egress_cidr_blocks
   eks_cluster_encryption                       = var.eks_cluster_encryption
   encryption_resources                         = var.encryption_resources
+  root_device_name                             = var.root_device_name
+  root_volume_size                             = var.root_volume_size
+  root_volume_type                             = var.root_volume_type
+  karpenter_eks_cluster_node_group_name  = "${var.controller_name}-karpenter-workernode"
+  karpenter_instance_type                = var.karpenter_instance_type
+  karpenter_desired_capacity             = var.karpenter_desired_capacity
+  karpenter_max_size                     = var.karpenter_max_size
+  karpenter_min_size                     = var.karpenter_min_size
+  fargate_profile_name                   = "${var.controller_name}-karpenter-fargate-profile"
+  karpenter_enabled                      = var.karpenter-enabled
+  karpenter_fargate_enabled              = var.karpenter_fargate_enabled
 }
 
 # ------------------------------------------------------------##
@@ -111,6 +122,7 @@ module "iam" {
   use_existing_s3_backup_restore_bucket = var.existing_s3_backup_restore_bucketname != "" ? true : false
   use_existing_s3_eaas_bucket           = var.existing_eaas_bucketname != "" ? true : false
   use_existing_s3_tsdb_bucket           = var.tsdb_existing_s3_bucket_name != "" ? true : false
+  tsdb_backup_enabled                   = var.tsdb_backup_enabled
 }
 
 # ------------------------------------------------------------##
@@ -145,7 +157,7 @@ module "iam_user" {
 # ------------------------------------------------------------##
 module "rds" {
   source                              = "./rds"
-  count                               = var.existing_rds_host_address == "" && var.rds_engine == "postgres" ? 1 : 0
+  count                               = var.external-database ? (var.existing_rds_host_address == "" && var.rds_engine == "postgres" ? 1 : 0) : 0
   cluster_name                        = var.controller_name
   vpc_id                              = var.vpc_id != "" ? var.vpc_id : module.eks-cluster.vpc_id[0]
   identifier                          = "${var.controller_name}-postgres"
@@ -183,9 +195,7 @@ module "rds" {
   ingress_cidr_blocks                 = var.ingress_cidr_blocks
   egress_cidr_blocks                  = var.egress_cidr_blocks
   use_aws_secret_manager              = var.use_aws_secret_manager
-  kms_key_id                          = var.kms_key_arn != "" ? var.kms_key_arn : module.kms[0].kms_key_arn
-  region                              = var.region
-  replication_db                      = var.replication_source_db
+  dbsecret_arn                        = var.dbsecret_arn
 }
 
 # ------------------------------------------------------------##
@@ -193,7 +203,7 @@ module "rds" {
 # ------------------------------------------------------------##
 module "rds_aurora" {
   source                       = "./rds_aurora"
-  count                        = var.existing_rds_host_address == "" && var.rds_engine == "aurora-postgresql" ? 1 : 0
+  count                        = var.external-database ? (var.existing_rds_host_address == "" && var.rds_engine == "aurora-postgresql" ? 1 : 0) : 0
   cluster_name                 = var.controller_name
   vpc_id                       = var.vpc_id != "" ? var.vpc_id : module.eks-cluster.vpc_id[0]
   identifier                   = "${var.controller_name}-postgres"
@@ -324,6 +334,7 @@ module "karpenter" {
   cluster_endpoint = module.eks-cluster.cluster_endpoint
   karpenter_role   = "${var.controller_name}-KarepnterRole"
   default_tags     = var.additional_tags
+  region           = var.region
 }
 
 # ------------------------------------------------------------
@@ -385,8 +396,6 @@ module "opensearch_domain" {
 # ------------------------------------------------------------ ##
 # Kinesis Firehose
 # ------------------------------------------------------------ ##
-data "aws_caller_identity" "this" {}
-
 module "kinesis-firehose" {
   source                = "./kinesis-firehose"
   count                 = var.kinesis-firehose ? 1 : 0
@@ -426,127 +435,96 @@ module "kinesis-firehose" {
 }
 
 # -----------------------------------------------------------##
+# External Services
+# -----------------------------------------------------------##
+
+
+/* module "external-services" {
+  count                   = var.external_logging_enabled ? (var.external_logging_user_password != "" ? 0 : 1) : 0
+  source                  = "./external-services"
+  use_aws_secret_manager  = var.use_aws_secret_manager
+  external_es_name        = "${var.controller_name}-external-es-secrets"
+  recovery_window_in_days = var.recovery_window_in_days
+  default_tags            = var.additional_tags
+  username                = var.external_logging_user_name
+
+} */
+
+# -----------------------------------------------------------##
 # RUNNING RADM APPLICATION
 # ----------------------------------------------------------##
-
-# Importing the AWS secrets created for database previously using arn.
-
-data "aws_secretsmanager_secret" "postgresDBPwd" {
-  count = var.dbsecret_arn != "" ? 1 : 0
-  arn   = var.dbsecret_arn
-}
-
-# Importing the AWS secret version created previously using arn.
-
-data "aws_secretsmanager_secret_version" "creds" {
-  depends_on = [
-    data.aws_secretsmanager_secret.postgresDBPwd
-  ]
-  count     = var.dbsecret_arn != "" ? 1 : 0
-  secret_id = one(data.aws_secretsmanager_secret.postgresDBPwd.*.id)
-}
-
-data "external" "db_secrets" {
-  depends_on = [
-    data.aws_secretsmanager_secret.postgresDBPwd
-  ]
-  count   = var.dbsecret_arn != "" ? 1 : 0
-  program = ["echo", "${one(data.aws_secretsmanager_secret_version.creds.*.secret_string)}"]
-}
-
-# Importing the AWS secrets created for super user previously using arn.
-
-data "aws_secretsmanager_secret" "superuserPwd" {
-  count = var.superuser_secret_arn != "" ? 1 : 0
-  arn   = var.superuser_secret_arn
-}
-
-# Importing the AWS secret version created previously using arn.
-
-data "aws_secretsmanager_secret_version" "superuser_creds" {
-  count     = var.superuser_secret_arn != "" ? 1 : 0
-  secret_id = one(data.aws_secretsmanager_secret.superuserPwd.*.id)
-}
-
-data "external" "superuser_secrets" {
-  count   = var.superuser_secret_arn != "" ? 1 : 0
-  program = ["echo", "${one(data.aws_secretsmanager_secret_version.superuser_creds.*.secret_string)}"]
-}
-
-resource "random_password" "password" {
-  length      = 8
-  special     = false
-  min_lower   = 1
-  min_special = 1
-  min_numeric = 1
-  min_upper   = 1
-}
-
 module "radm_application" {
-  source                           = "./radm_application"
-  deploymentType                   = var.deploymentType
-  rds_hostname                     = var.existing_rds_host_address == "" ? (var.rds_engine == "postgres" ? one(module.rds.*.rds_hostname) : one(module.rds_aurora.*.rds_aurora_endpoint)) : ("${var.existing_rds_host_address}")
-  rds_port                         = 5432
-  rds_username                     = var.existing_rds_host_address == "" ? (var.rds_engine == "postgres" ? one(module.rds.*.rds_username) : one(module.rds_aurora.*.rds_aurora_username)) : (var.dbsecret_arn != "" ? one(data.external.db_secrets.*.result.username) : "")
-  domain_name                      = var.domain_name
-  rds_password                     = var.existing_rds_host_address == "" ? (var.rds_engine == "postgres" ? one(module.rds.*.rds_password) : one(module.rds_aurora.*.rds_aurora_password)) : (var.dbsecret_arn != "" ? one(data.external.db_secrets.*.result.password) : "")
-  cluster_id                       = module.eks-cluster.cluster_id
-  region                           = var.region
-  path                             = pathexpand("${var.path}")
-  controllerRepoUrl                = var.production ? var.prod_controllerRepoUrl : var.dev_controllerRepoUrl
-  controllerVersion                = var.controllerVersion
-  logo_path                        = pathexpand("${var.logo_path}")
-  cluster_name                     = var.controller_name
-  cluster_endpoint                 = module.eks-cluster.cluster_endpoint
-  cert_acm                         = var.cert_acm
-  aws_efs_fs_id                    = module.efs.aws_efs_fs_id
-  efs_iam_role_arn                 = module.efs.iam_role_arn
-  super_user                       = var.super_user
+  source                                   = "./radm_application"
+  deploymentType                           = var.deploymentType
+  rds_hostname                             = var.external-database ? (var.existing_rds_host_address == "" ? (var.rds_engine == "postgres" ? one(module.rds.*.rds_hostname) : one(module.rds_aurora.*.rds_aurora_endpoint)) : ("${var.existing_rds_host_address}")) : ""
+  rds_port                                 = 5432
+  rds_username                             = var.external-database ? (var.existing_rds_host_address == "" ? (var.rds_engine == "postgres" ? one(module.rds.*.rds_username) : one(module.rds_aurora.*.rds_aurora_username)) : (var.dbsecret_arn != "" ? one(data.external.db_secrets.*.result.username) : "")) : ""
+  domain_name                              = var.domain_name
+  rds_password                             = var.external-database ? (var.existing_rds_host_address == "" ? (var.rds_engine == "postgres" ? one(module.rds.*.rds_password) : one(module.rds_aurora.*.rds_aurora_password)) : (var.dbsecret_arn != "" ? one(data.external.db_secrets.*.result.password) : "")) : ""
+  cluster_id                               = module.eks-cluster.cluster_id
+  region                                   = var.region
+  path                                     = pathexpand("${var.path}")
+  controllerRepoUrl                        = var.controllerRepoUrl
+  controllerVersion                        = var.controllerVersion
+  logo_path                                = pathexpand("${var.logo_path}")
+  cluster_name                             = var.controller_name
+  cluster_endpoint                         = module.eks-cluster.cluster_endpoint
+  cert_acm                                 = var.cert_acm
+  aws_efs_fs_id                            = module.efs.aws_efs_fs_id
+  efs_iam_role_arn                         = module.efs.iam_role_arn
+  super_user                               = var.super_user
   super_user_password              = var.use_aws_secret_manager != true ? (module.radm_application.super_password) : (var.superuser_secret_arn != "" ? one(data.external.superuser_secrets.*.result.password) : (module.radm_application.super_password))
-  super_user_SecretName            = var.super_user_SecretName
-  enable_hosted_dns_server         = var.enable_hosted_dns_server
-  external_lb                      = var.external_lb
-  use_instance_role                = var.use_instance_role
-  aws_account_id                   = data.aws_caller_identity.this.account_id
-  aws_access_key_id                = var.aws_access_key #== "" ? base64encode(one(module.iam_user.*.access_key)) : var.aws_access_key
-  aws_secret_access_key            = var.aws_secret_key #== "" ? base64encode(one(module.iam_user.*.secret_key)) : var.aws_secret_key
-  kapenter_role_arn                = var.karpenter-enabled ? module.karpenter[0].karepnter_role_arn : ""
-  amp_ingest_role_arn              = var.amp-enabled ? module.AMP[0].amp_ingest_role_arn : ""
-  amp_query_role_arn               = var.amp-enabled ? module.AMP[0].amp_query_role_arn : ""
-  amp_workspace_id                 = var.amp-enabled ? module.AMP[0].prometheus_workspace_id : ""
-  controllerName                   = var.controllerName
-  console-certificate              = var.console-certificate
-  console-key                      = var.console-key
-  partner_name                     = var.partner_name
-  product_name                     = var.product_name
-  help-desk-email                  = var.help-desk-email
-  notifications-email              = var.notifications-email
-  external-database                = var.external-database
-  amp-enabled                      = var.amp-enabled
-  generate-self-signed-certs       = var.generate-self-signed-certs
-  karpenter-enabled                = var.karpenter-enabled
-  external-dns-enabled             = var.external-dns-enabled
-  externalDnsHostedZoneID          = var.zone_id
-  external-dns-role_arn            = var.external-dns-enabled ? module.external-dns[0].external-dns-role-name : 0
-  loadBalancerType                 = var.loadBalancerType
-  backup-restore-enabled           = var.backup_enabled
-  backup-restore-role_arn          = var.backup_enabled ? module.iam.BackupRestore_role_arn[0] : ""
-  backup-restoreSchedule           = var.backup-restoreSchedule
-  backup-restore-bucket_name       = var.existing_s3_backup_restore_bucketname != "" ? var.existing_s3_backup_restore_bucketname : "${var.controller_name}-s3-backup-restore-bucket"
-  tsdb_backup_bucket               = var.tsdb_existing_s3_bucket_name != "" ? var.tsdb_existing_s3_bucket_name : "${var.controller_name}-tsdb-backup-bucket"
-  tsdb_backup_role_arn             = var.amp-enabled ? "" : module.iam.tsdb_backup_role_arn[0]
-  lb_controller_role_arn           = module.iam.lb_controller_role_arn
-  lb_controller_clusterName        = module.eks-cluster.cluster_id
-  backup-restore                   = var.backup-restore
-  kinesis-firehose-delivery-stream = var.stream_name
-  kinesis-firehose-role-arn        = var.amp-enabled ? module.kinesis-firehose[0].kinesis_role_arn : ""
-  opensearchEnabled                = var.opensearchEnabled
-  opensearch-endpoint              = var.opensearchEnabled ? module.opensearch_domain[0].endpoint : ""
-  opensearch-user-name             = var.os_master_user_name
-  opensearch-user-password         = var.opensearchEnabled ? module.opensearch_domain[0].opensearch_password : ""
-  ami                              = var.ami_id
-  ec2_instance_type                = var.ec2_instance_type
-  public-ip                        = var.public-ip
+  super_user_SecretName                    = var.super_user_SecretName
+  enable_hosted_dns_server                 = var.enable_hosted_dns_server
+  external_lb                              = var.external_ssl_offload
+  use_instance_role                        = var.use_instance_role
+  aws_account_id                           = data.aws_caller_identity.this.account_id
+  aws_access_key_id                        = var.aws_access_key #== "" ? base64encode(one(module.iam_user.*.access_key)) : var.aws_access_key
+  aws_secret_access_key                    = var.aws_secret_key #== "" ? base64encode(one(module.iam_user.*.secret_key)) : var.aws_secret_key
+  kapenter_role_arn                        = var.karpenter-enabled ? module.karpenter[0].karepnter_role_arn : ""
+  amp_ingest_role_arn                      = var.amp-enabled ? module.AMP[0].amp_ingest_role_arn : ""
+  amp_query_role_arn                       = var.amp-enabled ? module.AMP[0].amp_query_role_arn : ""
+  amp_workspace_id                         = var.amp-enabled ? module.AMP[0].prometheus_workspace_id : ""
+  controllerName                           = var.controllerName
+  console-certificate                      = var.tls_certificate
+  console-key                              = var.tls_key
+  partner_name                             = var.partner_name
+  product_name                             = var.product_name
+  help-desk-email                          = var.help-desk-email
+  notifications-email                      = var.notifications-email
+  external-database                        = var.external-database
+  amp-enabled                              = var.amp-enabled
+  generate-self-signed-certs               = var.generate-self-signed-certs
+  karpenter-enabled                        = var.karpenter-enabled
+  karpenter_fargate_enabled                = var.karpenter_fargate_enabled
+  karpenter_instance_instance_type         = var.karpenter_instance_instance_type
+  karpenter_instance_capacity_type         = var.karpenter_instance_capacity_type
+  karpenter_instance_tag_enable            = var.karpenter_instance_tag_enable
+  karpenter_instance_tags                  = var.karpenter_instance_tags
+  karpenter_instance_amifamily             = var.karpenter_instance_amifamily
+  karpenter_instance_shared_subnet_enabled = var.karpenter_instance_shared_subnet_enabled
+  external-dns-enabled                     = var.external-dns-enabled
+  externalDnsHostedZoneID                  = var.zone_id
+  external-dns-role_arn                    = var.external-dns-enabled ? module.external-dns[0].external-dns-role-name : 0
+  loadBalancerType                         = var.loadBalancerType
+  backup-restore-enabled                   = var.backup_enabled
+  backup-restore-role_arn                  = var.backup_enabled ? module.iam.BackupRestore_role_arn[0] : ""
+  backup-restoreSchedule                   = var.backup-restoreSchedule
+  backup-restore-bucket_name               = var.existing_s3_backup_restore_bucketname != "" ? var.existing_s3_backup_restore_bucketname : "${var.controller_name}-s3-backup-restore-bucket"
+  tsdb_backup_bucket                       = var.tsdb_existing_s3_bucket_name != "" ? var.tsdb_existing_s3_bucket_name : "${var.controller_name}-tsdb-backup-bucket"
+  tsdb_backup_role_arn                     = var.amp-enabled ? "" : module.iam.tsdb_backup_role_arn[0]
+  lb_controller_role_arn                   = module.iam.lb_controller_role_arn
+  lb_controller_clusterName                = module.eks-cluster.cluster_id
+  backup-restore                           = var.backup-restore
+  kinesis-firehose-delivery-stream         = var.stream_name
+  kinesis-firehose-role-arn                = var.amp-enabled ? module.kinesis-firehose[0].kinesis_role_arn : ""
+  opensearchEnabled                        = var.opensearchEnabled
+  opensearch-endpoint                      = var.opensearchEnabled ? module.opensearch_domain[0].endpoint : ""
+  opensearch-user-name                     = var.os_master_user_name
+  opensearch-user-password                 = var.opensearchEnabled ? module.opensearch_domain[0].opensearch_password : ""
+  ami                                      = var.ami_id
+  ec2_instance_type                        = var.ec2_instance_type
+  public-ip                                = var.public-ip
   /* subnet_id                        = length(var.private_subnets_ids) != 0 ? var.private_subnets_ids : module.eks-cluster.private_subnets */
   subnet_id                     = var.publicLoadBalancer == "true" ? (length(var.public_subnets_ids) != 0 ? var.public_subnets_ids : module.eks-cluster.public_subnets) : (length(var.private_subnets_ids) != 0 ? var.private_subnets_ids : module.eks-cluster.private_subnets)
   vpc_id                        = var.vpc_id != "" ? var.vpc_id : module.eks-cluster.vpc_id[0]
@@ -595,7 +573,16 @@ module "radm_application" {
   engine_api_irsa_role_arn       = module.iam.eaas_irsa_role_arn
   registry_subpath               = var.registry_subpath
   use_aws_secret_manager         = var.use_aws_secret_manager
+  external_es_port               = var.external_es_port
+  superuser_secret_arn           = var.superuser_secret_arn
+  cert_manager_external          = var.cert_manager_external
+  metrics_server_external        = var.metrics_server_external
+  efs_driver_external            = var.efs_driver_external
+  alb_controller_external        = var.alb_controller_external
+  issuer_name                    = var.issuer_name
   resticEnable                   = var.backup_resticEnable
+  namespace_labels               = var.namespace_labels
+  pod_tolerations_enable         = var.pod_tolerations_enable
 }
 
 # ------------------------------------------------------------
@@ -614,7 +601,7 @@ module "route_53" {
   zone_id              = var.zone_id
   record_name_backend  = var.record_name_backend
   default_tags         = var.additional_tags
-  external_lb          = var.external_lb
+  external_lb          = var.external_ssl_offload
 }
 
 
@@ -626,67 +613,6 @@ module "kms" {
   count          = var.kms_key_arn != "" ? 0 : 1
   kms_key_period = var.kms_key_period
   default_tags   = var.additional_tags
+  kms_key_name   = "${var.controller_name}-kms"
 }
 
-### ----------------------------------------------------------
-#  Creates ISM Policy managed Indices in Opensearch
-### ----------------------------------------------------------
-resource "null_resource" "creates_ism_policy" {
-  count = var.opensearchEnabled ? 1 : 0
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-c"]
-    command     = <<EOT
-         curl  -XPUT -u '${var.os_master_user_name}:${(module.opensearch_domain[0].opensearch_password)}' 'https://${module.opensearch_domain[0].endpoint}/_opendistro/_ism/policies/${var.policyid}' -k -H 'Content-Type: application/json' -d '{"policy":{"policy_id":"${var.policyid}","description":"hot-delete workflow policy to delete indices based on size and age.","default_state":"hot","states":[{"name":"hot","actions":[],"transitions":[{"state_name":"warm","conditions":{"min_size":"${var.HotState_MinSize}"}},{"state_name":"warm","conditions":{"min_index_age":"${var.HotState_IndexAge}"}}]},{"name":"warm","actions":[],"transitions":[{"state_name":"delete","conditions":{"min_index_age":"${var.WarmState_IndexAge}"}}]},{"name":"delete","actions":[{"delete":{}}],"transitions":[]}],"ism_template":[{"index_patterns":${jsonencode(var.index-patterns)},"priority":${var.priority}}]}}'
-    EOT
-  }
-}
-
-resource "null_resource" "to-get-seqno" {
-  count = var.opensearchEnabled ? 1 : 0
-  depends_on = [
-    null_resource.creates_ism_policy
-  ]
-  triggers = {
-    id  = var.HotState_MinSize,
-    age = var.HotState_IndexAge
-  }
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-c"]
-    command     = <<EOT
-        curl -XGET -u '${var.os_master_user_name}:${(module.opensearch_domain[0].opensearch_password)}' "https://${module.opensearch_domain[0].endpoint}/_opendistro/_ism/policies/${var.policyid}" | awk -F "," '{print $3}'  | cut -d ":" -f2 > seqno.txt
-    EOT
-  }
-}
-
-resource "null_resource" "to-get-primaryterm" {
-  count = var.opensearchEnabled ? 1 : 0
-  depends_on = [
-    null_resource.creates_ism_policy
-  ]
-  triggers = {
-    id  = var.HotState_MinSize,
-    age = var.HotState_IndexAge
-  }
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-c"]
-    command     = <<EOT
-          curl -XGET -u '${var.os_master_user_name}:${(module.opensearch_domain[0].opensearch_password)}' "https://${module.opensearch_domain[0].endpoint}/_opendistro/_ism/policies/${var.policyid}" | awk -F "," '{print $4}'  | cut -d ":" -f2 > primaryterm.txt
-      EOT
-  }
-}
-
-data "local_file" "seq_no" {
-  count = var.opensearchEnabled ? 1 : 0
-  depends_on = [
-    null_resource.to-get-seqno
-  ]
-  filename = "${path.module}/seqno.txt"
-}
-
-data "local_file" "primary_term" {
-  count = var.opensearchEnabled ? 1 : 0
-  depends_on = [
-    null_resource.to-get-primaryterm
-  ]
-  filename = "${path.module}/primaryterm.txt"
-}

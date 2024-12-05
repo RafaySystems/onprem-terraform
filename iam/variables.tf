@@ -29,3 +29,6 @@ variable "use_existing_s3_eaas_bucket" {
 variable "use_existing_s3_tsdb_bucket" {
   default = false
 }
+variable "tsdb_backup_enabled" {
+
+}

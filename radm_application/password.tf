@@ -10,7 +10,7 @@ resource "random_password" "super_password" {
   override_special = "@"
 }
 
-# Creating a AWS secret for Super User  (Super User-password)
+# Creating a AWS secret for User  (User-password)
 
 resource "aws_secretsmanager_secret" "super_user_password" {
   count                   = var.use_aws_secret_manager ? 1 : 0
@@ -23,7 +23,7 @@ resource "aws_secretsmanager_secret" "super_user_password" {
   )
 }
 
-# Creating an AWS secret version for Super User (postgres-password)
+# Creating an AWS secret version (password)
 
 resource "aws_secretsmanager_secret_version" "secret_version" {
   count         = var.use_aws_secret_manager ? 1 : 0
@@ -62,6 +62,6 @@ locals {
   super_creds = var.use_aws_secret_manager ? jsondecode(data.aws_secretsmanager_secret_version.secret_creds[0].secret_string) : null
 }
 
-output "super_password" {
-  value = local.super_creds != null ? local.super_creds.password : random_password.super_password.result
-}
+#output "super_password" {
+#  value = local.super_creds != null ? local.super_creds.password : random_password.super_password.result
+#}

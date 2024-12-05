@@ -41,6 +41,4 @@ variable "threshold" {}
 variable "sns_arn" {}
 variable "apply_immediately" {}
 variable "use_aws_secret_manager" {}
-variable "kms_key_id" {}
-variable "region" {}
-variable "replication_db" {}
+variable "dbsecret_arn" {}

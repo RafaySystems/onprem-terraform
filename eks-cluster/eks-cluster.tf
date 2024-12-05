@@ -309,8 +309,16 @@ resource "aws_eks_node_group" "default-worker-nodes-group" {
 # Launch Template with AMI
 #####
 
+data "aws_ssm_parameter" "bottlerocket_ami_parameter" {
+  name = "/aws/service/bottlerocket/aws-k8s-${var.eks_cluster_version}/x86_64/latest/image_id"
+}
+
+data "aws_ssm_parameter" "amazon_ami_parameter" {
+  name = "/aws/service/eks/optimized-ami/${var.eks_cluster_version}/amazon-linux-2/recommended/image_id"
+}
+
 resource "aws_launch_template" "cluster" {
-  image_id               = var.ami_id
+  image_id               = var.ami_id != "" ? var.ami_id : var.bottleRocket_os ? data.aws_ssm_parameter.bottlerocket_ami_parameter.value : data.aws_ssm_parameter.amazon_ami_parameter.value
   name                   = var.launchtemp_name
   update_default_version = var.launchtemp_update_version
 
@@ -324,6 +332,16 @@ resource "aws_launch_template" "cluster" {
       volume_type = var.volume_type
     }
   }
+
+  block_device_mappings {
+    device_name = var.root_device_name
+
+    ebs {
+      volume_size = var.root_volume_size
+      volume_type = var.root_volume_type
+    }
+  }
+
   vpc_security_group_ids = [aws_security_group.worker_security_group.id]
 
   tag_specifications {
@@ -470,4 +488,67 @@ resource "aws_eks_addon" "aws-ebs-csi-driver" {
   addon_version            = var.ebs_addon_version
   resolve_conflicts        = var.ebs_resolve_conflicts
   service_account_role_arn = var.ebs_arn
+}
+
+##############################################
+#Create the karpenter workers
+##############################################
+
+resource "aws_eks_node_group" "karpenter-worker-nodes-group" {
+  cluster_name    = var.cluster_name
+  count           = var.karpenter_enabled ? (var.karpenter_fargate_enabled ? 0 : 1) : 0
+  node_group_name = var.karpenter_eks_cluster_node_group_name
+  node_role_arn   = aws_iam_role.eks-workernode-role.arn
+  subnet_ids              = var.create_vpc == true ? aws_subnet.nodes_private_subnet.*.id : var.nodes_private_subnets_ids
+  instance_types          = var.karpenter_instance_type
+  capacity_type           = var.capacity_type
+
+scaling_config {
+    desired_size = var.karpenter_desired_capacity
+    max_size     = var.karpenter_max_size
+    min_size     = var.karpenter_min_size
+  }
+
+  launch_template {
+    name      = aws_launch_template.cluster.name
+    version   = aws_launch_template.cluster.latest_version
+  }
+
+labels = {
+    "node-type" = "worker"
+    "node"      = "karpenter"
+  }
+
+  taint {
+    key    = "node"
+    value  = "karpenter"
+    effect = "NO_SCHEDULE"
+  }
+}
+
+resource "aws_eks_fargate_profile" "fargate_profile" {
+  cluster_name           = var.cluster_name
+  count                  = var.karpenter_enabled ? (var.karpenter_fargate_enabled ? 1 : 0) : 0
+  fargate_profile_name   = var.fargate_profile_name
+  pod_execution_role_arn = aws_iam_role.eks-fargate-pod.arn
+  subnet_ids             = var.create_vpc == true ? aws_subnet.nodes_private_subnet.*.id : var.nodes_private_subnets_ids
+
+  selector {
+    namespace = "karpenter"
+  }
+}
+
+resource "aws_iam_role" "eks-fargate-pod" {
+  name = var.fargate_profile_name
+
+  assume_role_policy = jsonencode({
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "eks-fargate-pods.amazonaws.com"
+      }
+    }]
+    Version = "2012-10-17"
+  })
 }

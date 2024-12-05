@@ -1,5 +1,7 @@
 variable "deploymentType" {}
-variable "rds_hostname" {}
+variable "rds_hostname" {
+  default = ""
+}
 variable "rds_port" {}
 variable "rds_username" {}
 variable "domain_name" {}
@@ -36,6 +38,13 @@ variable "external-database" {}
 variable "amp-enabled" {}
 variable "generate-self-signed-certs" {}
 variable "karpenter-enabled" {}
+variable "karpenter_fargate_enabled" {}
+variable "karpenter_instance_instance_type" {}
+variable "karpenter_instance_capacity_type" {}
+variable "karpenter_instance_tag_enable" {}
+variable "karpenter_instance_tags" {}
+variable "karpenter_instance_amifamily" {}
+variable "karpenter_instance_shared_subnet_enabled" {}
 variable "external-dns-enabled" {}
 variable "external-dns-role_arn" {}
 variable "externalDnsHostedZoneID" {}
@@ -116,4 +125,13 @@ variable "engine_api_blob_bucket" {}
 variable "engine_api_irsa_role_arn" {}
 variable "registry_subpath" {}
 variable "use_aws_secret_manager" {}
+variable "external_es_port" {}
+variable "superuser_secret_arn" {}
+variable "cert_manager_external" {}
+variable "metrics_server_external" {}
+variable "efs_driver_external" {}
+variable "alb_controller_external" {}
+variable "issuer_name" {}
 variable "resticEnable" {}
+variable "namespace_labels" {}
+variable "pod_tolerations_enable" {}

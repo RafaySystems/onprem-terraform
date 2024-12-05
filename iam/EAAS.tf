@@ -24,13 +24,14 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "eaas_bucket_s3_en
   }
 }
 
-
 resource "aws_s3_bucket_policy" "allow_access_from_other_resource" {
   count = var.use_existing_s3_eaas_bucket ? 0 : 1
   depends_on = [
     aws_s3_bucket.eaas_bucket,
     aws_s3_bucket_server_side_encryption_configuration.eaas_bucket_s3_encrypts,
     data.aws_iam_policy_document.allow_access_for_s3,
+    aws_iam_role.eaas_iam_role,
+    aws_iam_role_policy_attachment.attach_eaas_policy,
   ]
   bucket = aws_s3_bucket.eaas_bucket[0].id
   policy = data.aws_iam_policy_document.allow_access_for_s3[0].json
@@ -38,7 +39,12 @@ resource "aws_s3_bucket_policy" "allow_access_from_other_resource" {
 
 data "aws_iam_policy_document" "allow_access_for_s3" {
   count      = var.use_existing_s3_eaas_bucket ? 0 : 1
-  depends_on = [aws_s3_bucket.eaas_bucket]
+  depends_on = [
+    aws_s3_bucket.eaas_bucket,
+    aws_s3_bucket_server_side_encryption_configuration.eaas_bucket_s3_encrypts,
+    aws_iam_role.eaas_iam_role,
+    aws_iam_role_policy_attachment.attach_eaas_policy,
+  ]
   statement {
     principals {
       type        = "AWS"

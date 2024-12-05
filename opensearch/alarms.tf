@@ -51,7 +51,3 @@ resource "aws_cloudwatch_metric_alarm" "OpenSearch_disk_queue_depth_too_high" {
     DomainName = var.domain
   }
 }
-
-
-
-
