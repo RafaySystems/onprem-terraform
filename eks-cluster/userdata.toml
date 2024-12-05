@@ -1,0 +1,6 @@
+[settings.kubernetes]
+api-server = "${endpoint}"
+cluster-certificate = "${certificate_authority}"
+cluster-name = "${CLUSTER_NAME}"
+
+${USER_CUSTOM_COMMANDS}

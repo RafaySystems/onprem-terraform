@@ -1,0 +1,52 @@
+variable "domain" {}
+variable "opensearch_version" {}
+variable "instance_type" {}
+variable "zone_awareness_enabled" {}
+variable "advanced_sg_enabled" {}
+variable "internal_user_database_enabled" {}
+variable "os_master_user_name" {}
+#variable "os_master_user_password" {}
+variable "os_enforce_https" {}
+variable "tls_security_policy" {}
+variable "encrypt_at_rest" {}
+variable "node_to_node_encryption" {}
+variable "ebs_enabled" {}
+variable "ebs_volume_size" {}
+variable "volume_type" {}
+variable "default_tags" {}
+variable "subnet_ids" {}
+variable "vpc_id" {}
+variable "opensearch_public" {}
+variable "availability_zone_count" {}
+variable "kinesis_arn" {}
+variable "create_iam_service_linked_role_for_opensearch" {
+  type        = bool
+  default     = false
+  description = "Whether to create `AWSServiceRoleForAmazonElasticsearchService` service-linked role. Set it to `false` if you already have an ElasticSearch cluster created in the AWS account and AWSServiceRoleForAmazonElasticsearchService already exists. See https://github.com/terraform-providers/terraform-provider-aws/issues/5218 for more info"
+}
+variable "ingress_cidr_blocks" {}
+variable "egress_cidr_blocks" {}
+
+### Alarms variables
+variable "controllername" {}
+variable "comparison_operator" {}
+variable "evaluation_periods" {}
+variable "period" {}
+variable "statistic" {}
+variable "threshold" {}
+variable "sns_arn" {}
+variable "seq_no" {}
+variable "primary_term" {}
+variable "update_policy" {}
+variable "HotState_MinSize" {}
+variable "HotState_IndexAge" {}
+variable "policyid" {}
+variable "WarmState_IndexAge" {}
+variable "index-patterns" {}
+variable "priority" {}
+variable "auto_tune_desired_state" {}
+variable "auto_tune_rollback_on_disable" {}
+variable "instance_count" {}
+variable "use_aws_secret_manager" {}
+variable "OS_SecretName" {}
+variable "recovery_window_in_days" {}

@@ -1,0 +1,346 @@
+###-------------------------GLOBAL VALUES-------------------------###
+## Enter AWS Region to host the controller EKS cluster
+region = "us-west-2"
+
+## Enter AWS availability zones for the controller EKS cluster
+azs = ["us-west-2a", "us-west-2b", "us-west-2c"]
+
+## Set additional AWS tags for all resources created by the Terraform scripts
+additional_tags = {
+  "env" = "dev"
+}
+
+## Set to true for production.
+production = true
+
+## Set to true only for BottleRocket OS 
+bottleRocket_os = false
+
+## Set to false if you don't want to use AWS secret Manager
+use_aws_secret_manager = true
+
+###----------------Controller EKS Cluster Variables----------------###
+## Set the controller EKS cluster name. No uppercase letter
+controller_name = "rafay-controller"
+
+## Set the controller EKS cluster K8S version
+eks_cluster_version = "1.27"
+
+## Enter the custom AMI ID for the above k8s version to use for the EKS cluster's worker nodes
+ami_id = "ami-019e5b81636e5a350"
+
+## Enter the ssh key name to use for worker nodes
+ec2_ssh_key = "shared-key"
+
+## Set to true/false to enable/disable private access for the controller EKS cluster's endpoint
+eks_endpoint_private_access = true
+
+## Set to true/false to enable/disable public access for the controller EKS cluster's endpoint
+eks_endpoint_public_access = false
+
+## By default the minimum number of instances, desired number of instances and max number of instances is set to 3,3,9 respectively.
+## To change the default number of instances, set the values for the following keys min_size,desired_capacity,max_size.
+
+## Specifies the number of days you want to retain log events in the specified log group
+retention_days = 30
+
+## EC2 Instance Type
+capacity_type = "ON_DEMAND" ## "SPOT" or "ON_DEMAND"
+
+## Set to true/false to enable/disable for KMS encryption on EKS cluster
+eks_cluster_encryption = true
+
+###-------------Controller EKS Cluster VPC Variables----------------###
+## If using existing VPC set this value to false and update the below values.
+create_vpc = false
+
+## If create_vpc is false, update this value with VPC ID for the existing VPC to host the controller EKS cluster
+vpc_id = "vpc-00dce6760fe18cd58"
+
+## (Optional) Enter the list of public subnet IDs to use for either worker nodes or public endpoints of other AWS services
+# Ex: ["subnet-00690d776377b1ad7", "subnet-0aaf3e0a7c9212921", "subnet-0c572b5b56372c381"]
+public_subnets_ids = []
+
+## Enter the list of routable private subnet IDs to use for private load balancers or private endpoints of other AWS services.
+private_subnets_ids = []
+
+## Enter the list of non-routable private subnet IDs to use for the controller EKS cluster's worker nodes.
+worker_nodes_private_subnets_ids = []
+
+## Update cidr blocks for security groups
+ingress_cidr_blocks = ["10.0.0.0/16", "0.0.0.0/0"]
+
+egress_cidr_blocks = ["0.0.0.0/0"]
+
+###----------AWS IAM User For Delegation Variables -------------------###
+## Set the name of the secret to be created to store the IAM User for delegation credentials in AWS Secret Manager
+#userCredSecretName = ""
+
+###----------S3 Bucket For Backup And Restore Variables -------------------###
+## Set the name of existing S3 Bucket to be used for the controller Backup and Restore instead of creating it
+existing_s3_backup_restore_bucketname = ""
+
+###-------------------------AWS RDS Variables-------------------------###
+## Enter the RDS host address if using the existing RDS database
+existing_rds_host_address = ""
+
+## To create read replica of DB Provide DB resource arn
+replication_source_db_arn = "" ## example: db arn of existing db "arn:aws:rds:us-east-1:XXXXXXx:db:controller-replicated-postgres"
+
+##Update with existing rds host secret arn below
+dbsecret_arn = ""
+
+## Set to true/false to enable/disable public access for RDS
+rds_publicly_accessible = false
+
+## Set the name of the secret to be created to store the RDS credentials in AWS Secret Manager
+rds_SecretName = "rafay-controller-DBCred"
+
+## Set the name for RDS snapshots
+final_snapshot_identifier = "rafay-controller-restored-db"
+
+## Set to true if you want to restore the controller's data from existing RDS
+restore_rds = false
+
+## Enter the name of the secret in AWS Secret Manager which stored the credentials for the existing RDS database
+restore_DB_secretsName = "rafay-controller-DBCred"
+
+## Set to true/false to enable/disable using IAM for RDS authentication
+rds_iam_database_authentication_enabled = true
+
+## The days to retain backups for. Must be between 0 and 35
+rds_backup_retention_period = 30
+
+## Set to true/false whether any database modifications are applied immediately or during the next maintenance window
+apply_immediately = true
+
+#uncomment the below postgres-aurora Configuration if at all using the terraform to bring up the aurora RDS
+#rds_engine = "aurora-postgresql"  #For normal postgresql use "postgres" as value for aurora postgresql use "aurora-postgresql"
+#rds_storage_encrypted = false     #For testing purpose setting it to false
+#num_cluster_instances = 1         #Number of instance in the aurora postgresql cluster
+
+###-------AWS OpenSearch Variables----------------###
+## Set to true/false to enable/disable the creation of AWS OpenSearch to use for the controller logs
+opensearchEnabled = false
+
+### Set the name of the AWS OpenSearch domain to be created
+os_domain = "rafay-opensearch"
+
+## Set the name of the secret to be created to store the OpenSearch credentials in AWS Secret Manager
+OS_SecretName = "rafay-controller-OSCred"
+
+## Set to true/false to enable/disable public access for OpenSearch
+opensearch_public = false
+
+##Set the public or private Subnet IDs for opensearch. Length of the variable is based on the number of az's.
+opensearchSubnetID = []
+
+## Set the name for the Kinesis Firehose
+stream_name = "rafay-controller-kinesis"
+
+## set the  name for the Kinesis Firehose for controller logs
+logsstream_name = "rafay-controller-kinesislogs"
+
+
+###---------------Rafay Controller Config Variables---------------###
+## Replace the value with your controller wildcard domain name (Route53 hosted zone)
+domain_name = "controller.rafay.dev"
+
+## Replace with your ACM's ARN of the signed TLS certificate for the controller wildcard domain name above
+cert_acm = ""
+
+## Replace with your machine local path to store the downloaded Rafay controller package
+path = "/Working/Rafay/rafay-eks-terraform"
+
+## Replace with your machine local path to extract the Rafay controller packages
+tar-extract-path = "/tmp"
+
+## Replace with your machine local path to the logo to use for the Rafay controller console UI
+logo_path = ""
+
+## Enter the URL to download the Rafay controller package
+prod_controllerRepoUrl = "https://rafay-airgap-controller.s3.us-west-2.amazonaws.com/2.2"
+
+dev_controllerRepoUrl = "https://dev-rafay-controller.s3.us-west-1.amazonaws.com/Automation"
+
+## Enter the Rafay controller package version to download
+controllerVersion = "rafay-controller-custom-registry-2.2-11"
+
+## Set the Rafay super-user username to access the Rafay operations console
+super_user = "superadmin@rafay.co"
+
+##When backup_restore is true update the below value 
+superuser_secret_arn = ""
+
+## Set the name of the secret to be created to store the Rafay super-user credentials in AWS Secret Manager
+super_user_SecretName = "rafay-controller-SUPwD"
+
+## Set to true/false to create a self-signed cert to use inside the controller
+# Keep this value as "true" if using the cert_acm for TLS termination at AWS Load Balancer above
+generate-self-signed-certs = true
+
+## Set the name for the Rafay Partner
+partner_name = "Rafay Dev Cloud"
+
+## Set the name for the Rafay Product Name
+product_name = "Rafay Dev Cloud"
+
+## Enter help-desk email address
+help-desk-email = "helpdesk@rafay.co"
+
+## Enter notification email address
+notifications-email = "notify@rafay.co"
+
+## Set to true or false to create the public (internet-facing) or internal for the Rafay controller load balancer services
+publicLoadBalancer = "false"
+
+#Set the type of loadbalancer,the options available are either "internet-facing" or "internal".BY default it is set to "internet-facing"
+loadBalancerType = "internet-facing"
+
+## (Optional) Provide the base64 encoded value of the existing IAM user for delegation if you do not want the Terraform script to create
+aws_access_key = ""
+aws_secret_key = ""
+
+###-----------------Route53 Variables---------------------###
+## Set to true/false to enable/disable the creation of route53 zone for the controller domain_name
+creates_route53_zone = false
+
+## Set to true/false to enable/disable the creation of the Rafay controller's DNS records
+creates_route53_records = true
+
+## Enter the Route53 zone_id of the controller domain_name
+zone_id = "Z10xxxxxxxxxxxx3XH"
+
+## Set to true/false to enable/disable the external-dns integration to manage DNS records for the controller FQDNs
+external-dns-enabled = true
+
+###------------Amazon Managed Prometheus Variables-------------###
+## Set to true/false to enable/disable the creation of AWS Managed Prometheus
+amp-enabled = false
+
+## Set to true/false to enable/disable the creation of kinesis firehose.
+kinesis-firehose = false
+
+###--------Karpenter For Cluster Autoscaling Variables--------###
+## Set to true/false to enable/disable the deployment of Karpenter to use the controller EKS cluster autoscaling
+karpenter-enabled = true
+
+## Set to true/false to enable/disable of using instance role
+use_instance_role = true
+
+## Set to true/false to enable/disable of using irsa role for cluster provisioning
+irsa_role_enabled = true
+
+## Set to true/false to enable/disable the ssl offload on loadbalancer
+external_lb = true
+
+## Specify the kms key id for encyption
+kms_key_arn = ""
+
+##Specify the number retention days for backup(velero)
+RetentionPeriod = "168h0m0s" #pattern for retention days (hours/minutes/seconds)
+
+##Schedules the backup (velero)
+backup-restoreSchedule = "0 0 * * *" #Backup and restore shedules everydat at 12 AM
+
+##Set to true/false to enable/disable the backup for controller
+backup_enabled = true
+
+##Set to true while restoring the controller
+backup-restore = false
+
+##Set to true/false to enable/disable the restic backups on the controller.
+backup_resticEnable = false
+
+##Backup name to be provided while restoring
+backup-name = ""
+
+## Name for the ISM Policy to delete logs based on Size
+policyid = "IndexSize_Base_deletion"
+
+## Size of the Indices (to be moved to Warm state)
+HotState_MinSize = "5gb"
+
+## Age of the Indices (to be moved to Warm state)
+HotState_IndexAge = "3d"
+
+## Age of the Indices (to be deleted)
+WarmState_IndexAge = "30d"
+
+## Name of the Indices(Index Patterns) to deleted
+index-patterns = ["relay-audits*", "rafay-controller-logs*", "events-core*", "relay-commands*", "opa-logs*"]
+
+## priority for ISM policy.
+priority = 1
+
+## When Updating existing policy(make it true after creating policy)
+update_policy = false
+
+### Threshold value for getting alerts from cloudwatch(when Greater Than Threshold will get alerts)
+threshold = "80"
+
+### If the kuberenetes version is below version 1.25, Change the version to "1.14.3" 
+istioVersion = "1.16.0"
+
+## Blueprint Version
+blueprintVersion = "v2"
+
+## Set to true/false to enable/disable the backup for TSDB backup
+tsdb_backup_enabled          = true
+tsdb_existing_s3_bucket_name = ""
+
+## Set to true for only bringing up infrastructure
+run_only_infra = true
+
+##--Proxy variables--#
+
+#update host address for proxy Configuration
+proxy_host = "" # ex: "my-company-proxy.com"
+
+#Update IP address for proxy Configuration
+proxy_ip = "" #ex: "44.232.200.195"
+
+#Update port for proxy Configuration
+proxy_port = "" #ex: 8080
+
+#Update services for skip proxyy
+no-proxy = "" #ex: "localhost,10.96.0.0/12,10.224.0.0.0/16,.svc.cluster.local,authsrv,cryptosvc,edge-factory,rafay-sentry,edge-sec,config-processor,keygensvc,rafay-config"
+
+#Set EAAS existing bucket name to use otherwise terraform will create one
+existing_eaas_bucketname = ""
+
+##-------Custom Registry Variables---------##
+
+#update Registry Type as `ecr` or `jfrog`
+registry_type = ""
+
+registry_subpath = "rafay"
+
+##---ECR--##
+
+## Update with AWS Access ID
+ecr_aws_access_key_id = ""
+
+## Update with AWS Secret access ID
+ecr_aws_secret_access_key = ""
+
+## Update with ECR endpoint
+aws-ecr-endpoint = ""
+
+##Update with irsa role arn created for image pull
+ecr_aws_irsa_role = ""
+
+##---Jfrog--##
+
+## Jrog User name and password
+jfrog_user_name = ""
+
+jfrog_password = ""
+
+jfrog_endpoint = ""
+
+##-------------USER_DATA-------------##
+user_custom_commands = <<-EOT
+  #!/bin/bash
+  echo "My user data"
+EOT

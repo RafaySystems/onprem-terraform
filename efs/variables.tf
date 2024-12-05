@@ -1,0 +1,10 @@
+variable "cluster_name" {}
+variable "subnet_id" {}
+variable "vpc_id" {}
+variable "default_tags" {}
+variable "creation_token" {}
+variable "efs_role_name" {}
+variable "efs_policy_name" {}
+variable "kms_key_arn" {}
+variable "ingress_cidr_blocks" {}
+variable "egress_cidr_blocks" {}

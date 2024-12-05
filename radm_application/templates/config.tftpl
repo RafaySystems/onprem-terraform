@@ -1,0 +1,160 @@
+apiVersion: radm.k8s.io/v1beta1
+kind: InitConfiguration
+metadata:
+  name: ${controllerName}
+spec:
+  blueprintVersion: ${blueprintVersion}
+  # networking:         # Interface for core traffic. Default picks primary interface.
+    # interface: ens3
+  deployment:
+    type: "${deploymentType}"	  # Supports "airgap", "EKS", "GKE" and "AKS".
+    ha: true
+    size: "${deploymentSize}"
+  database:
+    external-database: ${external-database}
+    host: "%{ if deploymentType == "EKS" }${rds_hostname}%{ endif }"   #Private IP of the Database Instance
+    port: "${rds_port}"
+  dns:
+    enabled: ${external_dns_enabled}
+    eks: 
+      role_arn: "${external_dns_role_arn}"
+      hosted_zone_id: "${externalDnsHostedZoneID}"
+  monitoring:                              # For external monitoring infra using AMP
+    integrations:
+      amp:
+        enabled: ${amp-enabled}
+        ingest_role_arn: "${ingest_role_arn}"
+        query_role_arn: "${query_role_arn}"
+        region: "${region}"
+        host: "aps-workspaces.${region}.amazonaws.com"
+        workspace_id: "${workspace_id}"
+      external_logging:
+        enabled: ${external_logging_enabled}
+        endpoint: "${external_logging_endpoint}"
+        user_name: "${external_logging_user_name}"
+        user_password: "${external_logging_user_password}"
+      external_metrics:
+        enabled: ${external_metrics_enabled}
+  backup_restore:
+    enabled: ${velero_enabled}
+    restore: ${velero_restore}
+    schedule: "${veleroSchedule}" #"*/10 * * * *"
+    bucketName: "${velero_bucket_name}" #storage container name
+    retentionPeriod : "${RetentionPeriod}" #Retention Days for backup
+    restoreFolderName: "${BackupFolderName}"
+    resticEnable: ${resticEnable}
+    region: ${region}
+    eks:
+      role_arn: "${velero_role_arn}"
+  proxy:
+    host: "${proxy_host}"
+    ip: "${proxy_ip}"
+    port: ${proxy_port} 
+    no-proxy: "${proxy_no-proxy}"
+  repo:
+    rafay-registry:
+      type: "${rafay_registry_type}"
+      registry-subpath: "${registry_subpath}"
+      registry-archive:
+        path: ${path}/rafay-registry.tar.gz
+        dir: ${tar-extract-path}
+      ecr:
+        aws-access-key: "${ecr_aws_access_key_id}"
+        aws-secret-key: "${ecr_aws_secret_access_key}"
+        aws-irsa-role: "${ecr_aws_irsa_role}"
+        aws-region: "${region}"
+        aws-ecr-endpoint: "${aws-ecr-endpoint}"
+      jfrog:
+        user_name: "${jfrog_user_name}"
+        password: "${jfrog_password}"
+        endpoint: "${jfrog_endpoint}"
+        insecure: ${jfrog_insecure}
+    infra-archive:
+      path: ${path}/rafay-infra-centos.tar.gz
+      images-path: "${path}/rafay-infra-images.tar.gz"
+      dir: ${tar-extract-path}
+    dep-archive:
+    - name: istio-1.16.0
+      path: ${path}/istio-${istioVersion}-blueprint.tar.gz
+      images-path-v2: "${path}/rafay-istio-1.16.0-images.tar.gz"
+    - name: istio-1.8.1
+      path: ${path}/istio-${istioVersion}-blueprint.tar.gz
+      images-path-v1: "${path}/rafay-istio-1.8.1-images.tar.gz"
+    - name: rafay-dep
+      path: ${path}/rafay-dep.tar.gz
+      images-path-v1: "${path}/rafay-dep-images-v1.tar.gz"
+      images-path-v2: "${path}/rafay-dep-images-v2.tar.gz"
+    app-archive:
+    - name: rafay-core
+      path: ${path}/rafay-core.tar.gz
+      images-path: "${path}/rafay-core-images.tar.gz"
+    cluster-images-archive:
+    - name: rafay-cluster-images
+      path: ${path}/rafay-cluster-images.tar.gz
+    cluster-assets-archive:  
+    - name: rafay-cluster-assets
+      path: ${path}/rafay-cluster-assets.tar.gz  
+  app-config:
+    generate-self-signed-certs: ${generate-self-signed-certs}         # TRUE creates self-signed certs for all controller endpoints. FALSE will use certs updated at console-certificates.certificate
+    console-certificates:                    # add the wildcard cert for the star-domain only when generate-self-signed-certs is false.
+      certificate: "${console-certificate}" 
+      key: "${console-key}" 
+    super-user:
+      user: "${super_user}"
+      password: "${super_user_password}"
+    partner:
+      star-domain: "${domain_name}"       # Provide the wildcard DNS fqdn for the rafay controller
+      name:  "${partner_name}"
+      logo: "${logo_path}"             # Display logo in UI, Default picks rafay logo
+      product-name: "${product_name}"
+      help-desk-email: "${help-desk-email}"
+      notifications-email: "${notifications-email}"
+  override-config:
+    global.tsdb_backup.enabled: ${tsdb_backup_enabled}
+    global.secrets.tsdb.gke.storage_account_key: ""  # base64 encoded value of Service account Json
+    global.tsdb_backup.bucket: "${tsdb_backup_bucket}" 
+    global.tsdb_backup.bucket_region: "${region}"
+    global.tsdb_backup.role_arn: "${tsdb_backup_role_arn}"
+    global.minReplicaCount: "${minReplicaCount}"
+    global.enable_hosted_dns_server: ${enable_hosted_dns_server}
+    global.external_lb: ${external_lb}
+    global.lb_controller.role_arn: "${lb_controller_role_arn}"
+    global.lb_controller.clusterName: "${lb_controller_clusterName}"
+    global.lb_scheme: "${loadBalancerType}" #internal or internet-facing
+    global.lb_subnet_ids: "${subnet_ids}"
+    global.acm_arn: "${cert_acm}"
+    global.cluster_name: "${cluster_name}"
+    global.use_instance_role: "${use_instance_role}"                  # True when a2252eb2-7a25-432b-a5ec-e18eba6f26b1controller uses its own IAM role for provisioning clusters.
+    global.edge.irsa_role_enabled: "%{ if irsa_role_enabled }true%{ else }false%{ endif }"
+    global.edge.irsa_role_arn: "${irsa_instance_iam_role_arn}"
+    global.secrets.aws_account_id: "%{ if aws_account_id != "" }${aws_account_id}%{ else }ZWRnZWRidXNlcg==%{ endif }"       # Used for AWS IAM role based cluster provisioning, Add below secrets after encoding it with Base64.
+    global.secrets.aws_access_key_id: "%{ if aws_access_key_id != "" }${aws_access_key_id}%{ else }ZWRnZWRidXNlcg==%{ endif }" 
+    global.secrets.aws_secret_access_key: "%{ if aws_secret_access_key != "" }${aws_secret_access_key}%{ else }ZWRnZWRidXNlcg==%{ endif }" 
+
+    # Engine API Customisation 
+    global.engine_api_blob_provider: "${engine_api_blob_provider}"
+    global.engine_api_blob_bucket: "${engine_api_blob_bucket}"
+    global.engine_api_region: "${engine_api_region}" 
+    global.engine_api_irsa_role_arn: "${engine_api_irsa_role_arn}"
+
+    #EFS related paramaters
+    controller.serviceAccount.annotations: "${iam_role_arn}"
+    storageClass.efsFilesystemId: "${file_system_id}"
+    #karpenter related paramaters
+    karpenter.enabled: ${karpenter-enabled}
+    karpenter.serviceAccount.annotations: "${kapenter_role_arn}"
+    karpenter.clusterName: "${cluster_name}"
+    karpenter.clusterEndpoint: "${cluster_endpoint}"
+    karpenter.aws.defaultInstanceProfile: "KarpenterNodeInstanceProfile-${cluster_name}"
+    # OpenSearch related paramaters
+    global.opensearch.enabled: ${opensearchEnabled}
+    global.opensearch.endpoint: "${opensearch_endpoint}"
+    global.opensearch.user_name: "${opensearch_user_name}"
+    global.opensearch.user_password: "${opensearch_user_password}"
+    global.opensearch.region: "${region}"
+    global.kinesis_firehose.delivery_stream: "${kinesis_firehose_delivery_stream}"
+    global.kinesis_firehose.role_arn: "${kinesis_firehose_role_arn}"
+    global.kinesis_firehose.ctrl_logs_ds: "${kinesis_firehose_logsstreams}"            #Controller logs to the delevery stream
+    global.kinesis_firehose.ctrl_logs_ds_role_arn: "${kinesis_firehose_logsrole_arn}"   #Firehose delivery stream role arn for controller logs
+    global.velero.deployNodeAgent: false
+    global.velero.region: "us-west-2"

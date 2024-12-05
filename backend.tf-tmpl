@@ -1,0 +1,10 @@
+#configuration for terraform state file remote storage
+terraform {
+  backend "s3" {
+    encrypt        = true
+    region         = ""
+    bucket         = ""
+    dynamodb_table = ""
+    key            = "EKS/terraform.tfstate"
+  }
+}

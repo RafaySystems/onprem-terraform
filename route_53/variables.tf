@@ -1,0 +1,11 @@
+variable "domain_name" {}
+variable "creates_route53_zone" {}
+variable "vpc_id" {}
+variable "allow_overwrite" {}
+variable "record_name_ui" {}
+variable "record_ttl" {}
+variable "record_type" {}
+variable "zone_id" {}
+variable "record_name_backend" {}
+variable "default_tags" {}
+variable "external_lb" {}
