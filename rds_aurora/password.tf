@@ -2,7 +2,7 @@
 
 resource "random_password" "password" {
   length           = 12
-  special          = false
+  special          = true
   min_lower        = 1
   min_special      = 1
   min_numeric      = 1
@@ -60,9 +60,4 @@ data "aws_secretsmanager_secret_version" "creds" {
 
 locals {
   db_creds = var.use_aws_secret_manager ? jsondecode(data.aws_secretsmanager_secret_version.creds[0].secret_string) : null
-}
-
-output "rds_aurora_password" {
-  value = local.db_creds != null ? local.db_creds.password : random_password.password.result
-  /* sensitive = true */
 }

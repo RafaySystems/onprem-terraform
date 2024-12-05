@@ -10,7 +10,7 @@ additional_tags = {
   "env" = "dev"
 }
 
-## Set to true for production.
+## Set to false to create resources with minimumal configuration suitable for development or testing.
 production = true
 
 ## Set to true only for BottleRocket OS 
@@ -24,10 +24,10 @@ use_aws_secret_manager = true
 controller_name = "rafay-controller"
 
 ## Set the controller EKS cluster K8S version
-eks_cluster_version = "1.27"
+eks_cluster_version = "1.28"
 
-## Enter the custom AMI ID for the above k8s version to use for the EKS cluster's worker nodes
-ami_id = "ami-019e5b81636e5a350"
+## Enter the custom AMI ID for the above k8s version to use for the EKS cluster's worker nodes or Leave empty to pick default AMI ID.
+ami_id = ""
 
 ## Enter the ssh key name to use for worker nodes
 ec2_ssh_key = "shared-key"
@@ -48,7 +48,7 @@ retention_days = 30
 capacity_type = "ON_DEMAND" ## "SPOT" or "ON_DEMAND"
 
 ## Set to true/false to enable/disable for KMS encryption on EKS cluster
-eks_cluster_encryption = true
+eks_cluster_encryption = false
 
 ###-------------Controller EKS Cluster VPC Variables----------------###
 ## If using existing VPC set this value to false and update the below values.
@@ -84,8 +84,8 @@ existing_s3_backup_restore_bucketname = ""
 ## Enter the RDS host address if using the existing RDS database
 existing_rds_host_address = ""
 
-## To create read replica of DB Provide DB resource arn
-replication_source_db_arn = "" ## example: db arn of existing db "arn:aws:rds:us-east-1:XXXXXXx:db:controller-replicated-postgres"
+##Set the external-database value to false incase you dont want to use it. By default it is set to true
+external-database = true
 
 ##Update with existing rds host secret arn below
 dbsecret_arn = ""
@@ -146,8 +146,21 @@ logsstream_name = "rafay-controller-kinesislogs"
 ## Replace the value with your controller wildcard domain name (Route53 hosted zone)
 domain_name = "controller.rafay.dev"
 
-## Replace with your ACM's ARN of the signed TLS certificate for the controller wildcard domain name above
+## ACM ARN of the TLS certificate for the controller wildcard domain_name above
 cert_acm = ""
+
+## To enable/disable the ssl offload on loadbalancer.
+## Set to false when not using LB to terminate tls.
+external_ssl_offload = true
+
+## Uncomment below values to terminate tls in the controller nodes 
+##Update with base64encoded tls certificate and key of your above domain_name.
+#tls_certificate = ""
+#tls_key = ""
+
+## Set to true/false to create a self-signed cert, in case of non availability of certs for the domain_name.
+# Keep this value as "true" if using the cert_acm for TLS termination at AWS Load Balancer
+#generate-self-signed-certs = true
 
 ## Replace with your machine local path to store the downloaded Rafay controller package
 path = "/Working/Rafay/rafay-eks-terraform"
@@ -155,16 +168,14 @@ path = "/Working/Rafay/rafay-eks-terraform"
 ## Replace with your machine local path to extract the Rafay controller packages
 tar-extract-path = "/tmp"
 
-## Replace with your machine local path to the logo to use for the Rafay controller console UI
+## Provide the path to your local logo file or leave empty to pick the default logo_path to use for the Rafay controller console UI
 logo_path = ""
 
 ## Enter the URL to download the Rafay controller package
-prod_controllerRepoUrl = "https://rafay-airgap-controller.s3.us-west-2.amazonaws.com/2.2"
-
-dev_controllerRepoUrl = "https://dev-rafay-controller.s3.us-west-1.amazonaws.com/Automation"
+controllerRepoUrl = "https://rafay-airgap-controller.s3.us-west-2.amazonaws.com/2.5"
 
 ## Enter the Rafay controller package version to download
-controllerVersion = "rafay-controller-custom-registry-2.2-11"
+controllerVersion = "rafay-airgap-Centos-controller-2.5-05"
 
 ## Set the Rafay super-user username to access the Rafay operations console
 super_user = "superadmin@rafay.co"
@@ -174,10 +185,6 @@ superuser_secret_arn = ""
 
 ## Set the name of the secret to be created to store the Rafay super-user credentials in AWS Secret Manager
 super_user_SecretName = "rafay-controller-SUPwD"
-
-## Set to true/false to create a self-signed cert to use inside the controller
-# Keep this value as "true" if using the cert_acm for TLS termination at AWS Load Balancer above
-generate-self-signed-certs = true
 
 ## Set the name for the Rafay Partner
 partner_name = "Rafay Dev Cloud"
@@ -200,6 +207,9 @@ loadBalancerType = "internet-facing"
 ## (Optional) Provide the base64 encoded value of the existing IAM user for delegation if you do not want the Terraform script to create
 aws_access_key = ""
 aws_secret_key = ""
+
+## Set the existing Certificate Issuer Name. Leave empty if it doesn’t exist.
+issuer_name = ""
 
 ###-----------------Route53 Variables---------------------###
 ## Set to true/false to enable/disable the creation of route53 zone for the controller domain_name
@@ -225,20 +235,41 @@ kinesis-firehose = false
 ## Set to true/false to enable/disable the deployment of Karpenter to use the controller EKS cluster autoscaling
 karpenter-enabled = true
 
+###-----Fargate profile and new nodes group for karpenter-----###
+### Set to true to enable fargate profile or set it to false to create a new node group for karpenter
+karpenter_fargate_enabled = false
+
+## Instance type of new instance which creates by Karpenter. Currently used is c5a.4xlarge
+karpenter_instance_instance_type = "c5a.4xlarge"
+
+## Capacity type of new instance which creates by Karpenter. It support spot or on-demand.
+karpenter_instance_capacity_type = "on-demand"
+
+## Whether instance tag is required for new instances 
+karpenter_instance_tag_enable = true
+
+## Required environment tags if instance tag is enabled
+karpenter_instance_tags = [
+  "env:test",
+  "email:user@email.co"
+]
+## AMI familiy of instance which creates by Karpenter. It can be  used as AL2 and bottlerocket
+karpenter_instance_amifamily = "AL2"
+
+## If new instance created by Karpeneter uses a shared subent, then mark it is as true.
+karpenter_instance_shared_subnet_enabled = true
+
 ## Set to true/false to enable/disable of using instance role
 use_instance_role = true
 
 ## Set to true/false to enable/disable of using irsa role for cluster provisioning
 irsa_role_enabled = true
 
-## Set to true/false to enable/disable the ssl offload on loadbalancer
-external_lb = true
-
-## Specify the kms key id for encyption
+## Specify the kms key id for encyption or leave it empty to  create new.
 kms_key_arn = ""
 
 ##Specify the number retention days for backup(velero)
-RetentionPeriod = "168h0m0s" #pattern for retention days (hours/minutes/seconds)
+RetentionPeriod = "72h0m0s" #pattern for retention days (hours/minutes/seconds)
 
 ##Schedules the backup (velero)
 backup-restoreSchedule = "0 0 * * *" #Backup and restore shedules everydat at 12 AM
@@ -249,11 +280,11 @@ backup_enabled = true
 ##Set to true while restoring the controller
 backup-restore = false
 
-##Set to true/false to enable/disable the restic backups on the controller.
-backup_resticEnable = false
-
 ##Backup name to be provided while restoring
 backup-name = ""
+
+## Set to true to enable the restic backups for controller
+backup_resticEnable = false
 
 ## Name for the ISM Policy to delete logs based on Size
 policyid = "IndexSize_Base_deletion"
@@ -279,8 +310,8 @@ update_policy = false
 ### Threshold value for getting alerts from cloudwatch(when Greater Than Threshold will get alerts)
 threshold = "80"
 
-### If the kuberenetes version is below version 1.25, Change the version to "1.14.3" 
-istioVersion = "1.16.0"
+### If the kuberenetes version is below version 1.25, Change the version to "1.14.3" and for v1 controllers change to 1.8.1.
+istioVersion = "1.16.7"
 
 ## Blueprint Version
 blueprintVersion = "v2"
@@ -340,7 +371,22 @@ jfrog_password = ""
 jfrog_endpoint = ""
 
 ##-------------USER_DATA-------------##
-user_custom_commands = <<-EOT
-  #!/bin/bash
-  echo "My user data"
-EOT
+##Uncomment below variable, if needs to pass any user data commands for worker nodes. 
+
+#user_custom_commands = <<-EOT
+#  #!/bin/bash
+#  echo "My user data"
+#EOT
+
+
+##-------------External Services------##
+external_logging_enabled          = false
+external_logging_endpoint         = ""
+external_elasticserach_secret_arn = ""
+external_logging_user_name        = ""
+external_logging_user_password    = ""
+
+##Update Labels for namespace
+namespace_labels = {
+  Owner = "Rafay"
+}

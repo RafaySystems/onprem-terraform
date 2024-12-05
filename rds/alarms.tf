@@ -12,7 +12,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_utilization_too_high" {
   ok_actions          = ["${var.sns_arn}"]
 
   dimensions = {
-    DBInstanceIdentifier = var.replication_db == "" ? aws_db_instance.postgres_sql[0].id : aws_db_instance.postgres_sql_replica[0].id
+    DBInstanceIdentifier = aws_db_instance.postgres_sql.id
   }
 }
 
@@ -30,7 +30,7 @@ resource "aws_cloudwatch_metric_alarm" "disk_queue_depth_too_high" {
   ok_actions          = ["${var.sns_arn}"]
 
   dimensions = {
-    DBInstanceIdentifier = var.replication_db == "" ? aws_db_instance.postgres_sql[0].id : aws_db_instance.postgres_sql_replica[0].id
+    DBInstanceIdentifier = aws_db_instance.postgres_sql.id
   }
 }
 
@@ -48,7 +48,7 @@ resource "aws_cloudwatch_metric_alarm" "freeable_memory_too_low" {
   ok_actions          = ["${var.sns_arn}"]
 
   dimensions = {
-    DBInstanceIdentifier = var.replication_db == "" ? aws_db_instance.postgres_sql[0].id : aws_db_instance.postgres_sql_replica[0].id
+    DBInstanceIdentifier = aws_db_instance.postgres_sql.id
   }
 }
 
@@ -66,6 +66,6 @@ resource "aws_cloudwatch_metric_alarm" "database_connection_too_high" {
   ok_actions          = ["${var.sns_arn}"]
 
   dimensions = {
-    DBInstanceIdentifier = var.replication_db == "" ? aws_db_instance.postgres_sql[0].id : aws_db_instance.postgres_sql_replica[0].id
+    DBInstanceIdentifier = aws_db_instance.postgres_sql.id
   }
 }

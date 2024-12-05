@@ -2,7 +2,7 @@
 
 resource "random_password" "restore_rds_password" {
   length           = 12
-  special          = false
+  special          = true
   min_lower        = 1
   min_special      = 1
   min_numeric      = 1

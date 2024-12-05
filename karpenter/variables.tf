@@ -4,3 +4,4 @@ variable "cluster_name" {}
 variable "provider_url" {}
 variable "karpenter_role" {}
 variable "default_tags" {}
+variable "region" {}

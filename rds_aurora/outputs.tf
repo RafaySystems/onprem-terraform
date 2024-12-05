@@ -20,3 +20,8 @@ output "rds_aurora_id" {
   description = "RDS aurora instance id"
   value       = aws_rds_cluster.cluster.id
 }
+
+output "rds_aurora_password" {
+  value = local.db_creds != null ? local.db_creds.password : random_password.password.result
+  /* sensitive = true */
+}

@@ -11,7 +11,7 @@ resource "aws_s3_bucket" "restores_data" {
 
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "kinesis_s3_encrypts" {
+resource "aws_s3_bucket_server_side_encryption_configuration" "s3_bucket_encryption" {
   count  = var.backup_enabled ? (var.backup-restore ? 0 : (var.use_existing_s3_backup_restore_bucket ? 0 : 1)) : 0
   bucket = var.s3_backup_restore_bucketname
 

@@ -1,6 +1,6 @@
 ###----CREATES S3 BUCKET FOR TSDB BACKUP----###
 resource "aws_s3_bucket" "tsdb_bucket" {
-  count         = var.amp-enabled ? 0 : (var.use_existing_s3_tsdb_bucket ? 0 : 1)
+  count         = var.amp-enabled ? 0 : (var.tsdb_backup_enabled ? (var.use_existing_s3_tsdb_bucket ? 0 : 1) : 0)
   bucket        = var.s3_tsdb_backup_bucket
   force_destroy = true
   tags = merge(
@@ -12,7 +12,7 @@ resource "aws_s3_bucket" "tsdb_bucket" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "s3_encryption" {
-  count  = var.amp-enabled ? 0 : (var.use_existing_s3_tsdb_bucket ? 0 : 1)
+  count  = var.amp-enabled ? 0 : (var.tsdb_backup_enabled ? (var.use_existing_s3_tsdb_bucket ? 0 : 1) : 0)
   bucket = var.s3_tsdb_backup_bucket
 
   rule {

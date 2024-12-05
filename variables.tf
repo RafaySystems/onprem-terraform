@@ -16,6 +16,29 @@ variable "eks_cluster_log_types" {
 variable "retention_days" {
   default = 3
 }
+# variable "karpenter_eks_cluster_node_group_name" {
+#   default = "rafay-karpenter-eks-node-group"
+# }
+variable "karpenter_instance_type" {
+  default = ["t3.small"]
+}
+variable "karpenter_desired_capacity" {
+  default = "1"
+}
+variable "karpenter_max_size" {
+  default = "2"
+}
+variable "karpenter_min_size" {
+  default = "1"
+}
+variable "karpenter_fargate_enabled" {
+  description = "Set to true to enable Fargate profile for Karpenter, false to create a new worker node group."
+  default     = false
+}
+variable "karpenter_enabled" {
+  description = "Enable or disable Karpenter for cluster autoscaling."
+  default     = true
+}
 # variable "eks_iam_role_name" {
 #   default = "rafay-eks-cluster-iam-role"
 # }
@@ -60,6 +83,15 @@ variable "volume_size" {
   default = 200
 }
 variable "volume_type" {
+  default = "gp2"
+}
+variable "root_device_name" {
+  default = "/dev/xvda"
+}
+variable "root_volume_size" {
+  default = 100
+}
+variable "root_volume_type" {
   default = "gp2"
 }
 variable "ec2_ssh_key" {
@@ -241,7 +273,7 @@ variable "rds_engine" {
   default = "postgres"
 }
 variable "rds_engine_version" {
-  default = "13.8"
+  default = "13.13"
 }
 variable "rds_backup_retention_period" {
   default = 3
@@ -307,7 +339,7 @@ variable "deletion_protection" {
 variable "performance_insights_enabled" {
   default = false
 }
-variable "replication_source_db_arn" {}
+
 ###--------- AMP Variables ----###
 # variable "prometheus_workspace_alias" { 
 #   default = "rafay-Prometheus-Metrics"
@@ -508,7 +540,7 @@ variable "super_user_SecretName" {
 variable "enable_hosted_dns_server" {
   default = false
 }
-variable "external_lb" {
+variable "external_ssl_offload" {
   default = true
 }
 variable "use_instance_role" {
@@ -523,10 +555,10 @@ variable "aws_secret_key" {
 variable "controllerName" {
   default = "RafayAirGapController"
 }
-variable "console-certificate" {
+variable "tls_certificate" {
   default = "" ##-- Values should be base64encoded
 }
-variable "console-key" {
+variable "tls_key" {
   default = "" ##-- Values should be base64encoded
 }
 variable "partner_name" {
@@ -548,10 +580,28 @@ variable "amp-enabled" {
   default = true
 }
 variable "generate-self-signed-certs" {
-  #default = true
+  default = true
 }
 variable "karpenter-enabled" {
   default = true
+}
+variable "karpenter_instance_instance_type" {
+  default = "c5a.4xlarge"
+}
+variable "karpenter_instance_capacity_type" {
+  default = "on-demand"
+}
+variable "karpenter_instance_tag_enable" {
+  default = true
+}
+variable "karpenter_instance_tags" {
+  type = list(string)
+}
+variable "karpenter_instance_amifamily" {
+  default = "AL2"
+}
+variable "karpenter_instance_shared_subnet_enabled" {
+  default = "true"
 }
 variable "external-dns-enabled" {
   default = true
@@ -572,7 +622,6 @@ variable "backup_enabled" {
 variable "backup_resticEnable" {
   default = false
 }
-
 variable "opensearchEnabled" {
   default = true
 }
@@ -587,10 +636,7 @@ variable "ec2_instance_type" {
 variable "controllerVersion" {
   #default = ""
 }
-variable "prod_controllerRepoUrl" {
-  #default = "" 
-}
-variable "dev_controllerRepoUrl" {
+variable "controllerRepoUrl" {
   #default = "" 
 }
 
@@ -645,14 +691,13 @@ variable "rds_SecretName" {
 variable "restore_DB_secretsName" {
   default = ""
 }
-variable "OS_SecretName" {
-  default = ""
-}
 
 variable "stream_name" {
   default = ""
 }
-
+variable "OS_SecretName" {
+  default = ""
+}
 
 variable "userCredSecretName" {
   default = ""
@@ -690,7 +735,7 @@ variable "kms_key_arn" {
 }
 
 variable "RetentionPeriod" {
-  #default = 7 
+  #default = 3 
 }
 
 variable "backup-name" {}
@@ -707,7 +752,18 @@ variable "index-patterns" {
 }
 variable "priority" {}
 variable "update_policy" {}
-
+variable "debug_core_policyid" {
+  default = "default-ilm-policy"
+}
+variable "debug_core_HotState_IndexAge" {
+  default = "3d"
+}
+variable "debug_core_WarmState_IndexAge" {
+  default = "7d"
+}
+variable "debug_core_index" {
+  default = ["debug-core*"]
+}
 variable "production" {}
 
 ##Cloudwatch alarm variables ####
@@ -804,4 +860,34 @@ variable "existing_s3_backup_restore_bucketname" {
 
 variable "existing_eaas_bucketname" {
   default = ""
+}
+
+
+variable "external_elasticserach_secret_arn" {
+  default = ""
+}
+
+variable "external_es_port" {
+  default = 9200
+}
+variable "cert_manager_external" {
+  default = false
+}
+variable "metrics_server_external" {
+  default = false
+}
+variable "efs_driver_external" {
+  default = false
+}
+variable "alb_controller_external" {
+  default = false
+}
+variable "issuer_name" {}
+
+variable "namespace_labels" {
+  type        = map(string)
+  description = "Map of namespace labels"
+}
+variable "pod_tolerations_enable" {
+  default = false
 }
